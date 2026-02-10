@@ -1,87 +1,291 @@
-<body>
-    <canvas id="canvas" width="800" height="600"></canvas>
-    <script>
-        // 获取canvas画布绘制上下文对象以及获取2d画笔对象
-        let canvas = document.getElementById("canvas");
-        let ctx = canvas.getContext("2d");
- 
-        function render() {
-            ctx.clearRect(0, 0, 800, 600);
- 
-            ctx.save() // 存档
-            ctx.translate(400, 300) // 平移
-            ctx.rotate(-Math.PI / 2) // 旋转
- 
-            ctx.save() // 存档
-            for (let i = 0; i < 12; i++) {
-                // 绘制小时的刻度
-                ctx.beginPath()
-                ctx.moveTo(170, 0)
-                ctx.lineTo(190, 0)
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 8
-                ctx.stroke()
-                ctx.closePath()
-                ctx.rotate(2 * Math.PI / 12)
-            }
-            ctx.restore() // 恢复上一层坐标
-            ctx.save() // 存档
-            for (let i = 0; i < 60; i++) {
-                // 绘制分钟的刻度
-                ctx.beginPath()
-                ctx.moveTo(180, 0)
-                ctx.lineTo(190, 0)
-                ctx.strokeStyle = 'gray';
-                ctx.lineWidth = 2
-                ctx.stroke()
-                ctx.closePath()
-                ctx.rotate(2 * Math.PI / 60)
-            }
-            ctx.restore() // 恢复上一层坐标
-            ctx.save() // 存档
- 
-            // 获取当前时间
-            let time = new Date();
-            let hour = time.getHours();
-            let min = time.getMinutes();
-            let sec = time.getSeconds();
-            hour = hour >= 12 ? hour - 12 : hour; // 12小时制
-            // 绘制时针
-            ctx.rotate(2 * Math.PI / 12 * hour + 2 * Math.PI / 12 / 60 * min + 2 * Math.PI / 12 / 60 / 60 * sec)
-            ctx.beginPath()
-            ctx.moveTo(-15, 0)
-            ctx.lineTo(110, 0)
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 8
-            ctx.stroke()
-            ctx.closePath()
-            ctx.restore() // 恢复上一层坐标
-            ctx.save() // 存档
-            // 绘制分针
-            ctx.rotate(2 * Math.PI / 60 * min + 2 * Math.PI / 60 / 60 * sec)
-            ctx.beginPath()
-            ctx.moveTo(-20, 0)
-            ctx.lineTo(130, 0)
-            ctx.strokeStyle = '#888';
-            ctx.lineWidth = 4
-            ctx.stroke()
-            ctx.closePath()
-            ctx.restore() // 恢复上一层坐标
-            ctx.save() // 存档
-            // 绘制秒针
-            ctx.rotate(2 * Math.PI / 60 * sec)
-            ctx.beginPath()
-            ctx.moveTo(-30, 0)
-            ctx.lineTo(190, 0)
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 2
-            ctx.stroke()
-            ctx.closePath()
-            ctx.restore() // 恢复上一层坐标
- 
-            ctx.restore() // 恢复上一层坐标
-            requestAnimationFrame(render)
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空格跳跃游戏</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
         }
-        render()
+        .game-container {
+            perspective: 1000px;
+        }
+        .player {
+            transition: transform 0.1s ease;
+        }
+        .obstacle {
+            animation: moveObstacle linear infinite;
+        }
+        @keyframes moveObstacle {
+            from { transform: translateX(100vw); }
+            to { transform: translateX(-100px); }
+        }
+        .cloud {
+            animation: float 20s linear infinite;
+        }
+        @keyframes float {
+            0% { transform: translateX(100vw); }
+            100% { transform: translateX(-100px); }
+        }
+        .jump-animation {
+            animation: jump 0.6s ease-out;
+        }
+        @keyframes jump {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-120px); }
+            100% { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center">
+    <div class="game-container w-full max-w-4xl mx-auto text-center text-white">
+        <!-- 游戏标题 -->
+        <div class="mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2 drop-shadow-lg">_SPACE JUMPER_</h1>
+            <p class="text-lg md:text-xl opacity-90">按空格键控制角色跳跃，避开障碍物！</p>
+        </div>
+
+        <!-- 游戏区域 -->
+        <div class="relative mx-auto bg-blue-900 bg-opacity-30 backdrop-blur-sm rounded-2xl border-2 border-white border-opacity-20 overflow-hidden shadow-2xl"
+             style="width: 800px; height: 400px;">
+            
+            <!-- 背景云朵 -->
+            <div class="absolute top-10 cloud text-5xl opacity-20">☁</div>
+            <div class="absolute top-30 cloud text-4xl opacity-30" style="animation-delay: -5s;">☁</div>
+            <div class="absolute top-20 cloud text-6xl opacity-15" style="animation-delay: -10s;">☁</div>
+            
+            <!-- 地面 -->
+            <div class="absolute bottom-0 w-full h-16 bg-gradient-to-t from-green-600 to-green-500"></div>
+            
+            <!-- 玩家角色 -->
+            <div id="player" class="player absolute bottom-16 left-20 w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full shadow-lg flex items-center justify-center text-2xl">
+                <i class="fas fa-running"></i>
+            </div>
+            
+            <!-- 障碍物容器 -->
+            <div id="obstacles" class="absolute bottom-16"></div>
+            
+            <!-- 分数显示 -->
+            <div class="absolute top-4 right-4 bg-black bg-opacity-30 px-4 py-2 rounded-full backdrop-blur-sm">
+                <span class="text-xl font-bold">得分: </span>
+                <span id="score" class="text-2xl font-bold text-yellow-300">0</span>
+            </div>
+            
+            <!-- 游戏状态提示 -->
+            <div id="gameStatus" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm hidden">
+                <div class="text-center p-8 bg-white bg-opacity-10 rounded-2xl backdrop-blur-sm">
+                    <h2 id="statusTitle" class="text-3xl font-bold mb-4">游戏结束</h2>
+                    <p id="finalScore" class="text-xl mb-6">最终得分: 0</p>
+                    <button id="restartBtn" class="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 rounded-full font-bold text-lg hover:from-green-600 hover:to-blue-600 transition-all transform hover:scale-105">
+                        重新开始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制说明 -->
+        <div class="mt-8 bg-black bg-opacity-20 backdrop-blur-sm rounded-2xl p-6 max-w-2xl mx-auto">
+            <h3 class="text-xl font-bold mb-3">游戏说明</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div class="flex items-center justify-center space-x-2">
+                    <kbd class="px-3 py-1 bg-gray-800 rounded-lg shadow">空格</kbd>
+                    <span>跳跃</span>
+                </div>
+                <div class="flex items-center justify-center space-x-2">
+                    <i class="fas fa-trophy text-yellow-400"></i>
+                    <span>避开障碍物</span>
+                </div>
+                <div class="flex items-center justify-center space-x-2">
+                    <i class="fas fa-bolt text-blue-400"></i>
+                    <span>得分越高越快</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏信息 -->
+        <div class="mt-6 text-sm opacity-75">
+            <p>按空格键开始游戏，再次按空格键控制角色跳跃</p>
+        </div>
+    </div>
+
+    <script>
+        class SpaceJumperGame {
+            constructor() {
+                this.player = document.getElementById('player');
+                this.obstacles = document.getElementById('obstacles');
+                this.scoreElement = document.getElementById('score');
+                this.gameStatus = document.getElementById('gameStatus');
+                this.statusTitle = document.getElementById('statusTitle');
+                this.finalScore = document.getElementById('finalScore');
+                this.restartBtn = document.getElementById('restartBtn');
+                
+                this.gameRunning = false;
+                this.isJumping = false;
+                this.score = 0;
+                this.gameSpeed = 2;
+                this.obstacleInterval = null;
+                this.gameLoop = null;
+                
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.showStartScreen();
+            }
+            
+            bindEvents() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        if (!this.gameRunning) {
+                            this.startGame();
+                        } else {
+                            this.jump();
+                        }
+                    }
+                });
+                
+                this.restartBtn.addEventListener('click', () => {
+                    this.restartGame();
+                });
+            }
+            
+            showStartScreen() {
+                this.statusTitle.textContent = '准备开始';
+                this.finalScore.textContent = '按空格键开始游戏';
+                this.gameStatus.classList.remove('hidden');
+            }
+            
+            startGame() {
+                this.gameRunning = true;
+                this.gameStatus.classList.add('hidden');
+                this.score = 0;
+                this.gameSpeed = 2;
+                this.updateScore();
+                this.clearObstacles();
+                this.startObstacleGeneration();
+                this.gameMainLoop();
+            }
+            
+            gameMainLoop() {
+                this.gameLoop = setInterval(() => {
+                    if (this.gameRunning) {
+                        this.updateScore();
+                        this.increaseDifficulty();
+                    }
+                }, 100);
+            }
+            
+            jump() {
+                if (this.isJumping || !this.gameRunning) return;
+                
+                this.isJumping = true;
+                this.player.classList.add('jump-animation');
+                
+                setTimeout(() => {
+                    this.player.classList.remove('jump-animation');
+                    this.isJumping = false;
+                }, 600);
+            }
+            
+            createObstacle() {
+                if (!this.gameRunning) return;
+                
+                const obstacle = document.createElement('div');
+                obstacle.className = 'obstacle absolute w-8 h-12 bg-gradient-to-b from-red-500 to-red-700 rounded-lg shadow-lg flex items-center justify-center text-white';
+                obstacle.innerHTML = '<i class="fas fa-skull"></i>';
+                obstacle.style.right = '-50px';
+                
+                this.obstacles.appendChild(obstacle);
+                
+                // 检测碰撞
+                const checkCollision = setInterval(() => {
+                    if (!this.gameRunning) {
+                        clearInterval(checkCollision);
+                        return;
+                    }
+                    
+                    const playerRect = this.player.getBoundingClientRect();
+                    const obstacleRect = obstacle.getBoundingClientRect();
+                    
+                    // 碰撞检测
+                    if (
+                        playerRect.left < obstacleRect.right &&
+                        playerRect.right > obstacleRect.left &&
+                        playerRect.top < obstacleRect.bottom &&
+                        playerRect.bottom > obstacleRect.top
+                    ) {
+                        this.gameOver();
+                        clearInterval(checkCollision);
+                    }
+                    
+                    // 移除已通过的障碍物并加分
+                    if (obstacleRect.right < 0) {
+                        obstacle.remove();
+                        clearInterval(checkCollision);
+                        this.score += 10;
+                        this.updateScore();
+                    }
+                }, 50);
+                
+                // 设置障碍物移动速度
+                obstacle.style.animationDuration = `${3 / this.gameSpeed}s`;
+            }
+            
+            startObstacleGeneration() {
+                this.obstacleInterval = setInterval(() => {
+                    if (this.gameRunning) {
+                        this.createObstacle();
+                    }
+                }, 1500 / this.gameSpeed);
+            }
+            
+            updateScore() {
+                this.scoreElement.textContent = this.score;
+            }
+            
+            increaseDifficulty() {
+                // 每100分增加游戏速度
+                const newSpeed = 2 + Math.floor(this.score / 100) * 0.5;
+                if (newSpeed !== this.gameSpeed) {
+                    this.gameSpeed = newSpeed;
+                    // 重新设置障碍物生成间隔
+                    clearInterval(this.obstacleInterval);
+                    this.startObstacleGeneration();
+                }
+            }
+            
+            clearObstacles() {
+                this.obstacles.innerHTML = '';
+            }
+            
+            gameOver() {
+                this.gameRunning = false;
+                clearInterval(this.obstacleInterval);
+                clearInterval(this.gameLoop);
+                
+                this.statusTitle.textContent = '游戏结束';
+                this.finalScore.textContent = `最终得分: ${this.score}`;
+                this.gameStatus.classList.remove('hidden');
+            }
+            
+            restartGame() {
+                this.clearObstacles();
+                this.startGame();
+            }
+        }
+        
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            new SpaceJumperGame();
+        });
     </script>
 </body>
+</html>
